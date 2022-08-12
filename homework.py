@@ -86,13 +86,12 @@ def get_api_answer(current_timestamp: time) -> dict:
             raise ServerError(
                 f'Сбой! Данные получены не в формате json! {error}.'
             )
-    else:
-        logger.error(
-            f'Сбой! Код ответа: {homework_statuses.status_code}.!'
-        )
-        raise HTTPStatusError(
-            f'Сбой! Код ответа: {homework_statuses.status_code}.!'
-        )
+    logger.error(
+        f'Сбой! Код ответа: {homework_statuses.status_code}.!'
+    )
+    raise HTTPStatusError(
+        f'Сбой! Код ответа: {homework_statuses.status_code}.!'
+    )
 
 
 def check_response(response: requests.Response) -> list:
