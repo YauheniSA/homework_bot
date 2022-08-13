@@ -32,7 +32,7 @@ HOMEWORK_STATUSES = {
 load_dotenv()
 
 
-def inint_logger():
+def init_logger() -> logging.Logger:
     """Инициализация логгера."""
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -43,7 +43,7 @@ def inint_logger():
     return logger
 
 
-logger = inint_logger()
+logger = init_logger()
 
 
 def send_message(bot: Bot, message: str) -> None:
@@ -75,26 +75,26 @@ def get_api_answer(current_timestamp: time) -> dict:
         raise ServerError(
             f'Сбой! Сервер не доступен! {error}.'
         )
-    if homework_statuses.status_code == HTTPStatus.OK:
-        logger.info('Код ответа на запрос: HTTPStatus.OK')
-        try:
-            return homework_statuses.json()
-        except Exception as error:
-            logger.error(
-                f'Сбой! Данные получены не в формате json! {error}.'
-            )
-            raise ServerError(
-                f'Сбой! Данные получены не в формате json! {error}.'
-            )
-    logger.error(
-        f'Сбой! Код ответа: {homework_statuses.status_code}.!'
-    )
-    raise HTTPStatusError(
-        f'Сбой! Код ответа: {homework_statuses.status_code}.!'
-    )
+    if homework_statuses.status_code != HTTPStatus.OK:
+        logger.error(
+            f'Сбой! Код ответа: {homework_statuses.status_code}.!'
+        )
+        raise HTTPStatusError(
+            f'Сбой! Код ответа: {homework_statuses.status_code}.!'
+        )
+    logger.info('Код ответа на запрос: HTTPStatus.OK')
+    try:
+        return homework_statuses.json()
+    except Exception as error:
+        logger.error(
+            f'Сбой! Данные получены не в формате json! {error}.'
+        )
+        raise ServerError(
+            f'Сбой! Данные получены не в формате json! {error}.'
+        )
 
 
-def check_response(response: requests.Response) -> list:
+def check_response(response: dict) -> list:
     """Проверка ответа Яндекс практикум."""
     if not isinstance(response, dict):
         logger.error(
@@ -116,6 +116,8 @@ def check_response(response: requests.Response) -> list:
             'Сбой в работе программы! Домашние работы пришли не в виде списка'
         )
         raise CheckApiAnswerError('Домашние работы пришли не в виде списка')
+    if len(response['homeworks']) == 0:
+        logger.debug('В ответе отсутствуют новые статусы')
     logger.info('Полученные от сервера данные корректны')
     return response['homeworks']
 
@@ -147,19 +149,18 @@ def parse_status(homework: dict) -> str:
         )
 
 
-def check_tokens():
+def check_tokens() -> bool:
     """Проверка доступности всех токенов для возможности работы ассистента."""
     if all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
         logger.info('Проверка переменных окружения пршла успешно')
         return True
-    else:
-        logger.critical(
-            'Сбой в работе программы: переменные окружения недоступны!'
-        )
-        return False
+    logger.critical(
+        'Сбой в работе программы: переменные окружения недоступны!'
+    )
+    return False
 
 
-def main():
+def main() -> None:
     """Основная логика работы бота."""
     bot = Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
@@ -168,8 +169,6 @@ def main():
         try:
             response = get_api_answer(current_timestamp)
             homeworks = check_response(response)
-            if len(homeworks) == 0:
-                logger.debug('В ответе отсутствуют новые статусы')
             for homework in homeworks:
                 message = parse_status(homework)
                 send_message(bot, message)
